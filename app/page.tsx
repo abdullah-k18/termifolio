@@ -1,65 +1,123 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
+import Link from "next/link";
+
+const BOOT_LINES = [
+  "TermiFolio OS v1.0.0",
+  "Copyright (c) 2026 TermiFolio",
+  "",
+  "Initializing kernel...",
+  "Loading modules... OK",
+  "Mounting filesystem... OK",
+  "Starting network... OK",
+  "",
+  "> Welcome to TermiFolio.",
+  "> Your identity, but in terminal.",
+  "",
+];
 
 export default function Home() {
+  const [visibleLines, setVisibleLines] = useState<string[]>([]);
+  const [showLinks, setShowLinks] = useState(false);
+
+  useEffect(() => {
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i < BOOT_LINES.length) {
+        setVisibleLines((prev) => [...prev, BOOT_LINES[i]]);
+        i++;
+      } else {
+        clearInterval(interval);
+        setTimeout(() => setShowLinks(true), 300);
+      }
+    }, 120);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="terminal-screen min-h-screen p-8 md:p-16">
+      <div className="scanline" />
+      <div className="max-w-2xl mx-auto">
+        <div className="mb-2 text-[var(--gray)] text-xs">
+          ┌─[ TERMIFOLIO ]──────────────────────────────────────────┐
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="space-y-0 mb-6">
+          {visibleLines.map((line, i) => (
+            <div key={i} className={line === "" ? "h-4" : "text-[var(--green)]"}>
+              {line}
+            </div>
+          ))}
+          {!showLinks && visibleLines.length > 0 && (
+            <span className="cursor" />
+          )}
         </div>
-      </main>
+
+        {showLinks && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="border border-[var(--green-dark)] p-6">
+              <p className="text-[var(--green)] mb-1">
+                <span className="text-[var(--gray)]">$</span> cat tagline.txt
+              </p>
+              <p className="text-[var(--amber)] text-lg font-bold mb-4">
+                "Not a website. A terminal."
+              </p>
+              <p className="text-[var(--white)] text-sm leading-relaxed">
+                Upload your photo, convert it to ASCII art, fill in your
+                details, and get a shareable terminal-style portfolio URL.
+                Visitors explore your profile using real terminal commands.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[var(--gray)] text-xs">
+                Available commands:
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Link
+                  href="/create"
+                  className="block border border-[var(--green)] p-4 hover:bg-[var(--green-dark)] transition-colors group"
+                >
+                  <span className="text-[var(--green)] font-bold">
+                    ./create-profile
+                  </span>
+                  <p className="text-[var(--gray)] text-xs mt-1">
+                    Build your terminal portfolio
+                  </p>
+                </Link>
+
+                <div className="border border-[var(--green-dark)] p-4 opacity-60">
+                  <span className="text-[var(--gray)] font-bold">
+                    /portfolio/&lt;username&gt;
+                  </span>
+                  <p className="text-[var(--gray)] text-xs mt-1">
+                    View any portfolio by URL
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-[var(--gray)] text-xs border-t border-[var(--green-dark)] pt-4">
+              <p>
+                <span className="text-[var(--green)]">tip:</span> visit{" "}
+                <span className="text-[var(--amber)]">/portfolio/your-username</span>{" "}
+                after creating your profile
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[var(--gray)]">$</span>
+              <span className="text-[var(--green)]">_</span>
+              <span className="cursor" />
+            </div>
+          </div>
+        )}
+
+        <div className="mt-8 text-[var(--gray)] text-xs">
+          └──────────────────────────────────────────────────────────┘
+        </div>
+      </div>
     </div>
   );
 }

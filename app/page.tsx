@@ -19,6 +19,7 @@ const BOOT_LINES = [
 
 export default function Home() {
   const [visibleLines, setVisibleLines] = useState<string[]>([]);
+  const [typedCommand, setTypedCommand] = useState("");
   const [showLinks, setShowLinks] = useState(false);
 
   useEffect(() => {
@@ -29,7 +30,19 @@ export default function Home() {
         i++;
       } else {
         clearInterval(interval);
-        setTimeout(() => setShowLinks(true), 300);
+        setTimeout(() => {
+          const cmd = "cat tagline.txt";
+          let j = 0;
+          const typeInterval = setInterval(() => {
+            if (j <= cmd.length) {
+              setTypedCommand(cmd.slice(0, j));
+              j++;
+            } else {
+              clearInterval(typeInterval);
+              setTimeout(() => setShowLinks(true), 300);
+            }
+          }, 80);
+        }, 300);
       }
     }, 120);
     return () => clearInterval(interval);
@@ -49,17 +62,18 @@ export default function Home() {
               {line}
             </div>
           ))}
-          {!showLinks && visibleLines.length > 0 && (
-            <span className="cursor" />
+          {visibleLines.length === BOOT_LINES.length && (
+            <div className="flex items-center gap-2">
+              <span className="text-[var(--gray)]">$</span>
+              <span className="text-[var(--green)]">{typedCommand}</span>
+              {!showLinks && <span className="cursor" />}
+            </div>
           )}
         </div>
 
         {showLinks && (
           <div className="space-y-6 animate-fade-in">
             <div className="border border-[var(--green-dark)] p-6">
-              <p className="text-[var(--green)] mb-1">
-                <span className="text-[var(--gray)]">$</span> cat tagline.txt
-              </p>
               <p className="text-[var(--amber)] text-lg font-bold mb-4">
                 "Not a website. A terminal."
               </p>

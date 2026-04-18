@@ -2,13 +2,14 @@
 
 import { useState, useRef, useCallback, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
-import { removeBackground } from "@imgly/background-removal";
 
-// Brightness → ASCII mapping (dark → light)
-const ASCII_CHARS = "@%#*+=-:. ";
+// 10 visually distinct chars at small font sizes (dark → light)
+const ASCII_CHARS = "@#%*+=-:. ";
 
-function imageToAscii(img: HTMLImageElement, width = 80): string {
-  const height = Math.round(width / 2);
+function imageToAscii(img: HTMLImageElement, width = 100): string {
+  // 0.45 corrects for chars being taller than wide
+  const height = Math.round(width * 0.45 * (img.naturalHeight / img.naturalWidth));
+
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -16,31 +17,22 @@ function imageToAscii(img: HTMLImageElement, width = 80): string {
   ctx.drawImage(img, 0, 0, width, height);
   const data = ctx.getImageData(0, 0, width, height).data;
 
-  const brightnesses: number[] = new Array(width * height);
-  for (let i = 0; i < width * height; i++) {
-    const p = i * 4;
-    const alpha = data[p + 3] / 255;
-    // Composite against white so transparent pixels become bright (space)
-    const r = data[p] * alpha + 255 * (1 - alpha);
-    const g = data[p + 1] * alpha + 255 * (1 - alpha);
-    const b = data[p + 2] * alpha + 255 * (1 - alpha);
-    brightnesses[i] = r * 0.299 + g * 0.587 + b * 0.114;
-  }
-
-  let min = 255, max = 0;
-  for (const b of brightnesses) {
-    if (b < min) min = b;
-    if (b > max) max = b;
-  }
-  const range = max - min || 1;
+  const last = ASCII_CHARS.length - 1;
+  const c = 0.5;
+  const contrastMul = (259 * (c * 255 + 255)) / (255 * (259 - c * 255));
 
   let ascii = "";
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
-      const b = brightnesses[y * width + x];
-      const normalized = (b - min) / range;
-      const curved = Math.pow(normalized, 2.2);
-      ascii += ASCII_CHARS[Math.floor(curved * (ASCII_CHARS.length - 1))];
+      const p = (y * width + x) * 4;
+      const alpha = data[p + 3] / 255;
+      // Composite against white so transparent pixels (bg-removed) become spaces
+      const r = data[p] * alpha + 255 * (1 - alpha);
+      const g = data[p + 1] * alpha + 255 * (1 - alpha);
+      const b = data[p + 2] * alpha + 255 * (1 - alpha);
+      const luma = r * 0.2126 + g * 0.7152 + b * 0.0722;
+      const contrasted = Math.min(255, Math.max(0, contrastMul * (luma - 128) + 128));
+      ascii += ASCII_CHARS[Math.floor((contrasted / 255) * last)];
     }
     ascii += "\n";
   }
@@ -87,33 +79,13 @@ export default function CreatePage() {
   const [otherLinkName, setOtherLinkName] = useState("");
   const [otherLinkUrl, setOtherLinkUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [removingBg, setRemovingBg] = useState(false);
   const [error, setError] = useState("");
   const [step, setStep] = useState<"form" | "preview" | "done">("form");
   const [createdUsername, setCreatedUsername] = useState("");
 
-  const handleImageUpload = useCallback(async (file: File) => {
-    // Yield to the browser so React can paint "generating art..." before heavy work starts
-    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-
-    let imageBlob: Blob = file;
-
-    try {
-      imageBlob = await removeBackground(file);
-
-      // Save to bucket (best-effort, don't block on failure)
-      fetch("/api/save-image", {
-        method: "POST",
-        headers: { "Content-Type": "image/png" },
-        body: await imageBlob.arrayBuffer(),
-      }).catch(() => {});
-    } catch {
-      // fall through to original
-    } finally {
-      setRemovingBg(false);
-    }
-
-    const url = URL.createObjectURL(imageBlob);
+  const handleImageUpload = useCallback((file: File) => {
+    setAsciiArt("");
+    const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => setAsciiArt(imageToAscii(img));
     img.src = url;
@@ -123,8 +95,6 @@ export default function CreatePage() {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
     if (file?.type.startsWith("image/")) {
-      setAsciiArt("");
-      setRemovingBg(true);
       handleImageUpload(file);
     }
   };
@@ -254,8 +224,8 @@ export default function CreatePage() {
           {asciiArt && (
             <div className="shrink-0">
               <pre
-                style={{ fontSize: "6px", lineHeight: "1.15", letterSpacing: "0.04em" }}
-                className="text-[var(--green)] font-mono whitespace-pre"
+                style={{ fontSize: "6px", lineHeight: "1.1", letterSpacing: "0.04em", background: "#00ff00", color: "#000", padding: "4px", fontWeight: "normal" }}
+                className="font-mono whitespace-pre"
               >
                 {asciiArt}
               </pre>
@@ -365,9 +335,7 @@ export default function CreatePage() {
               onDragOver={(e) => e.preventDefault()}
               onClick={() => fileInputRef.current?.click()}
             >
-              {removingBg ? (
-                <p className="text-[var(--amber)] text-xs animate-pulse">generating art...</p>
-              ) : asciiArt ? (
+              {asciiArt ? (
                 <p className="text-[var(--gray)] text-xs">Click to change image</p>
               ) : (
                 <div>
@@ -377,8 +345,8 @@ export default function CreatePage() {
               )}
             </div>
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) { setAsciiArt(""); setRemovingBg(true); handleImageUpload(f); } }} />
-            {asciiArt && !removingBg && (
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); }} />
+            {asciiArt && (
               <pre
                 style={{ fontSize: "6px", lineHeight: "1.15", letterSpacing: "0.04em" }}
                 className="text-[var(--green)] font-mono whitespace-pre mt-3"

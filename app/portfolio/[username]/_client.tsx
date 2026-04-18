@@ -257,8 +257,8 @@ export default function ProfilePage({
         {/* ASCII art */}
         {profile?.ascii_art && (
           <pre
-            style={{ fontSize: "5.5px", lineHeight: "1.15", letterSpacing: "0.04em" }}
-            className="text-[var(--green)] font-mono whitespace-pre overflow-hidden"
+            style={{ fontSize: "5.5px", lineHeight: "1.15", letterSpacing: "0.04em", background: "#00ff00", color: "#000", padding: "4px", fontWeight: "normal" }}
+            className="font-mono whitespace-pre overflow-hidden"
           >
             {profile.ascii_art}
           </pre>
